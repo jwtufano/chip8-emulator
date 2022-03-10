@@ -21,6 +21,8 @@ class Emulator {
         // TODO: Change to make bits represent pixels (XOR with sprite data)
         // Display
         uint8_t pixels [32][64];
+        SDL_Window* window = NULL;
+        SDL_Surface* screenSurface = NULL;
 
         // SDL Window Variables
         uint8_t windowWidth  = 64;
@@ -43,9 +45,8 @@ class Emulator {
         bool awaitingKey;
         uint8_t keyPressed;
 
+        // TODO: Figure out if this random implementation is actually good...
         // RNG
-        // std::random_device rd;
-        // static std::mt19937 rng(rd());
         std::default_random_engine& getRNG();
 
         // Instruction processing
@@ -53,6 +54,7 @@ class Emulator {
         void fetch();
         void decode();
 
+        // TODO: Put in order based on opcode.
         // Instructions
         void clearScreen();                                         //00E0
         void jump(uint16_t address);                                //1NNN
@@ -75,14 +77,13 @@ class Emulator {
         void rightShift(uint8_t reg);                               //8XY6
         void leftShift(uint8_t reg);                                //8XYE
 
-        void setIndex(uint16_t value);                              //ANNN
+        void setIndex(uint16_t address);                            //ANNN
 
         void jumpWithOffset(uint16_t address);                      //BNNN
         void random(uint8_t reg, uint8_t bitMask);                  //CXNN
 
         void display(uint8_t xReg, uint8_t yReg, uint8_t height);   //DXYN
 
-        // TODO: Implement
         void skipIfKey(uint8_t reg);                                //EX93
         void skipIfNotKey(uint8_t reg);                             //EXA1
 
@@ -99,12 +100,8 @@ class Emulator {
 
 
     public:
-        SDL_Window* window = NULL;
-        SDL_Surface* screenSurface = NULL;
-
         // Constructors
         Emulator();
-        // Emulator(uint8_t* font);
 
         // Destructor
         ~Emulator();
