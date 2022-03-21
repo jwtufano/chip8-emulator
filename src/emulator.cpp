@@ -7,21 +7,11 @@
 
 #include "emulator.h"
 
-// TODO: Add customization for some variables (font, pixelScale, instPerSecond)
 // TODO: Add debug mode
-// TODO: Use initializer list
 /* Creates a CHIP-8 emulator with default settings.
  * Load a program with the loadProgram function, then start emulation with the start function.
  */
 Emulator::Emulator() {
-    // Set vars to their default values
-    pixelScale = 16;
-    instPerSecond = 700;
-    awaitingKey = false;
-    keyPressed = 0xFF;
-    fontStart = 0x050;
-
-    // TODO: Handle setting the default font better (store in file maybe? not sure)
     // Set font part of memory (at 0x050 by convention)
     uint8_t font[] =
         {0xF0, 0x90, 0x90, 0x90, 0xF0,  // 0
@@ -210,7 +200,7 @@ void Emulator::decode() {
  */
 void Emulator::clearScreen() {
     // Set pixel array to 0
-    std::fill(&pixels[0][0], &pixels[0][0]+(32*64), 0);
+    std::fill(&pixels[0][0], &pixels[0][0]+(64*32), 0);
 
     // Make window black, then update display
     SDL_FillRect(screenSurface, NULL, SDL_MapRGB(screenSurface->format, 0x00, 0x00, 0x00));
@@ -460,19 +450,19 @@ void Emulator::display(uint8_t xReg, uint8_t yReg, uint8_t height){
             // If the bit is 1, flip the pixel
             if (spriteData >> (7 - xOff) & 1){
                 // If the bit is getting turned off, set the carry flag
-                if (pixels[y+yOff][x+xOff]){
+                if (pixels[x+xOff][y+yOff]){
                     vRegs[0xF] = 1;
                 }
 
                 // Flip the pixel
-                pixels[y+yOff][x+xOff] ^= 0xFF;
+                pixels[x+xOff][y+yOff] ^= 0xFF;
 
                 // Actually draw the flipped pixel
                 pixelRect.x = ((uint16_t) (x+xOff))*pixelScale;
                 pixelRect.y = ((uint16_t) (y+yOff))*pixelScale;
                 pixelRect.w = pixelScale;
                 pixelRect.h = pixelScale;
-                uint8_t color = pixels[y+yOff][x+xOff]; // The pixel array doubles as color (0x00 for black, 0xFF for white)
+                uint8_t color = pixels[x+xOff][y+yOff]; // The pixel array doubles as color (0x00 for black, 0xFF for white)
                 SDL_FillRect(screenSurface, &pixelRect, SDL_MapRGB(screenSurface->format, color, color, color));
             }
         }
@@ -482,98 +472,58 @@ void Emulator::display(uint8_t xReg, uint8_t yReg, uint8_t height){
     SDL_UpdateWindowSurface(window);
 }
 
-// TODO: Create separate function to handle switch for skipIfKey and skipIfNotKey
+/* Helper function for the key-related skip functions.
+ * Returns true if the scancode mapped to the key stored in the register is currently pressed.
+ */
+bool Emulator::isPressed(uint8_t reg){
+    // Switch on the value in the specified register, return whether or not it is pressed
+    const uint8_t* currentKeyStates = SDL_GetKeyboardState(NULL);
+    switch (vRegs[reg] & 0xF){
+    case 0x0:
+        return (bool) currentKeyStates[SDL_SCANCODE_X];
+    case 0x1:
+        return (bool) currentKeyStates[SDL_SCANCODE_1];
+    case 0x2:
+        return (bool) currentKeyStates[SDL_SCANCODE_2];
+    case 0x3:
+        return (bool) currentKeyStates[SDL_SCANCODE_3];
+    case 0x4:
+        return (bool) currentKeyStates[SDL_SCANCODE_Q];
+    case 0x5:
+        return (bool) currentKeyStates[SDL_SCANCODE_W];
+    case 0x6:
+        return (bool) currentKeyStates[SDL_SCANCODE_E];
+    case 0x7:
+        return (bool) currentKeyStates[SDL_SCANCODE_A];
+    case 0x8:
+        return (bool) currentKeyStates[SDL_SCANCODE_S];
+    case 0x9:
+        return (bool) currentKeyStates[SDL_SCANCODE_D];
+    case 0xA:
+        return (bool) currentKeyStates[SDL_SCANCODE_Z];
+    case 0xB:
+        return (bool) currentKeyStates[SDL_SCANCODE_C];
+    case 0xC:
+        return (bool) currentKeyStates[SDL_SCANCODE_4];
+    case 0xD:
+        return (bool) currentKeyStates[SDL_SCANCODE_R];
+    case 0xE:
+        return (bool) currentKeyStates[SDL_SCANCODE_F];
+    case 0xF:
+        return (bool) currentKeyStates[SDL_SCANCODE_V];
+    
+    default:
+        return false;
+    }
+}
+
 /* Opcode: EX93
  * If the key contained in the specified register is pressed, skip the next instruction.
  * The key is a value between 0x0 and 0xF.
  */
 void Emulator::skipIfKey(uint8_t reg){
-    // Switch on the value in the specified register, increment programCounter if corresponding key is pressed
-    const uint8_t* currentKeyStates = SDL_GetKeyboardState(NULL);
-    switch (vRegs[reg] & 0xF){
-    case 0x0:
-        if (currentKeyStates[SDL_SCANCODE_X]){
-            programCounter += 2;
-        }
-        break;
-    case 0x1:
-        if (currentKeyStates[SDL_SCANCODE_1]){
-            programCounter += 2;
-        }
-        break;
-    case 0x2:
-        if (currentKeyStates[SDL_SCANCODE_2]){
-            programCounter += 2;
-        }
-        break;
-    case 0x3:
-        if (currentKeyStates[SDL_SCANCODE_3]){
-            programCounter += 2;
-        }
-        break;
-    case 0x4:
-        if (currentKeyStates[SDL_SCANCODE_Q]){
-            programCounter += 2;
-        }
-        break;
-    case 0x5:
-        if (currentKeyStates[SDL_SCANCODE_W]){
-            programCounter += 2;
-        }
-        break;
-    case 0x6:
-        if (currentKeyStates[SDL_SCANCODE_E]){
-            programCounter += 2;
-        }
-        break;
-    case 0x7:
-        if (currentKeyStates[SDL_SCANCODE_A]){
-            programCounter += 2;
-        }
-        break;
-    case 0x8:
-        if (currentKeyStates[SDL_SCANCODE_S]){
-            programCounter += 2;
-        }
-        break;
-    case 0x9:
-        if (currentKeyStates[SDL_SCANCODE_D]){
-            programCounter += 2;
-        }
-        break;
-    case 0xA:
-        if (currentKeyStates[SDL_SCANCODE_Z]){
-            programCounter += 2;
-        }
-        break;
-    case 0xB:
-        if (currentKeyStates[SDL_SCANCODE_C]){
-            programCounter += 2;
-        }
-        break;
-    case 0xC:
-        if (currentKeyStates[SDL_SCANCODE_4]){
-            programCounter += 2;
-        }
-        break;
-    case 0xD:
-        if (currentKeyStates[SDL_SCANCODE_R]){
-            programCounter += 2;
-        }
-        break;
-    case 0xE:
-        if (currentKeyStates[SDL_SCANCODE_F]){
-            programCounter += 2;
-        }
-        break;
-    case 0xF:
-        if (currentKeyStates[SDL_SCANCODE_V]){
-            programCounter += 2;
-        }
-        break;
-    
-    default:
-        break;
+    if (isPressed(reg)){
+        programCounter += 2;
     }
 }
 
@@ -582,95 +532,8 @@ void Emulator::skipIfKey(uint8_t reg){
  * The key is a value between 0x0 and 0xF.
  */
 void Emulator::skipIfNotKey(uint8_t reg){
-    // Increment programCounter assuming key is not held
-    programCounter += 2;
-
-    // Switch on the value in the specified register, undo the assumed increment if corresponding key is pressed
-    const uint8_t* currentKeyStates = SDL_GetKeyboardState(NULL);
-    switch (vRegs[reg] & 0xF){
-    case 0x0:
-        if (currentKeyStates[SDL_SCANCODE_X]){
-            programCounter -= 2;
-        }
-        break;
-    case 0x1:
-        if (currentKeyStates[SDL_SCANCODE_1]){
-            programCounter -= 2;
-        }
-        break;
-    case 0x2:
-        if (currentKeyStates[SDL_SCANCODE_2]){
-            programCounter -= 2;
-        }
-        break;
-    case 0x3:
-        if (currentKeyStates[SDL_SCANCODE_3]){
-            programCounter -= 2;
-        }
-        break;
-    case 0x4:
-        if (currentKeyStates[SDL_SCANCODE_Q]){
-            programCounter -= 2;
-        }
-        break;
-    case 0x5:
-        if (currentKeyStates[SDL_SCANCODE_W]){
-            programCounter -= 2;
-        }
-        break;
-    case 0x6:
-        if (currentKeyStates[SDL_SCANCODE_E]){
-            programCounter -= 2;
-        }
-        break;
-    case 0x7:
-        if (currentKeyStates[SDL_SCANCODE_A]){
-            programCounter -= 2;
-        }
-        break;
-    case 0x8:
-        if (currentKeyStates[SDL_SCANCODE_S]){
-            programCounter -= 2;
-        }
-        break;
-    case 0x9:
-        if (currentKeyStates[SDL_SCANCODE_D]){
-            programCounter -= 2;
-        }
-        break;
-    case 0xA:
-        if (currentKeyStates[SDL_SCANCODE_Z]){
-            programCounter -= 2;
-        }
-        break;
-    case 0xB:
-        if (currentKeyStates[SDL_SCANCODE_C]){
-            programCounter -= 2;
-        }
-        break;
-    case 0xC:
-        if (currentKeyStates[SDL_SCANCODE_4]){
-            programCounter -= 2;
-        }
-        break;
-    case 0xD:
-        if (currentKeyStates[SDL_SCANCODE_R]){
-            programCounter -= 2;
-        }
-        break;
-    case 0xE:
-        if (currentKeyStates[SDL_SCANCODE_F]){
-            programCounter -= 2;
-        }
-        break;
-    case 0xF:
-        if (currentKeyStates[SDL_SCANCODE_V]){
-            programCounter -= 2;
-        }
-        break;
-    
-    default:
-        break;
+    if (!isPressed(reg)){
+        programCounter += 2;
     }
 }
 
